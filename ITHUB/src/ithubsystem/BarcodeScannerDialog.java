@@ -25,7 +25,7 @@ public class BarcodeScannerDialog extends JDialog {
     /**
      * Constructor
      * @param owner หน้าต่างแม่
-     * @param mainPanel หน้า ProductManagementPanel (สำหรับสั่งไฮไลต์)
+     * @param mainPanel หน้า ProductManagementPanel (สำหรับสั่งไฮไลต์) //
      */
     public BarcodeScannerDialog(JFrame owner, ProductManagementPanel mainPanel) {
         super(owner, "ค้นหาด้วยบาร์โค้ด", true); // Modal

@@ -197,7 +197,7 @@ public class SalePanel extends JPanel {
                     double price = (Double) cartTableModel.getValueAt(i, 3);
                     totalAmount += (quantity * price);
                 }
-                //
+                ////
 
                 // 5. หาหน้าต่างแม่
                 JFrame owner = (JFrame) SwingUtilities.getWindowAncestor(SalePanel.this);
@@ -239,7 +239,7 @@ public class SalePanel extends JPanel {
         
         tableScrollPane = new JScrollPane(cartTable);
     }
-    
+    //
     /**
      * ค้นหาสินค้าใน DB แล้วเพิ่มลงตาราง (ตะกร้า)
      */

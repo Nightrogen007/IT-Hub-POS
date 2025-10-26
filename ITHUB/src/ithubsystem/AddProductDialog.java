@@ -25,7 +25,7 @@ public class AddProductDialog extends JDialog {
     private HashMap<String, Integer> categoryMap;
 
     // (ใหม่) ตัวแปรสำหรับอ้างอิงกลับไปที่หน้าหลัก
-    private ProductManagementPanel mainPanel;
+    private ProductManagementPanel mainPanel;//
 
     /**
      * Constructor

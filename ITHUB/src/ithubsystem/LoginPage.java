@@ -28,7 +28,7 @@ public class LoginPage extends JFrame {
         setLayout(null); 
         
         // --- ปรับปรุงหน้าตา UI ตาม Mockup ---
-        //
+        //////
 
         // หัวข้อ "IT HUB"
         lblTitle = new JLabel("IT HUB");
