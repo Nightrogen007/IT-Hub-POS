@@ -140,78 +140,104 @@ public class ChartReportDialog extends JFrame {
     }
 
     /** กราฟวงกลม (Pie Chart) "สัดส่วนยอดขายตามหมวดหมู่" */
+    /** กราฟวงกลม (Pie Chart) "สัดส่วนยอดขายตามหมวดหมู่"
+     * (*** ฉบับแก้ไข - เอา Label ออก ***)
+    */
     private JPanel createCategoryPieChart() {
         DefaultPieDataset dataset = new DefaultPieDataset();
         String sql = "SELECT c.name, COALESCE(SUM(sd.quantity * sd.price_per_unit), 0) AS total_value FROM sale_details sd JOIN products p ON sd.product_id = p.product_id JOIN categories c ON p.category_id = c.category_id GROUP BY c.name ORDER BY total_value DESC";
-        try (Connection conn = DbConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) { while (rs.next()) { dataset.setValue(rs.getString("name"), rs.getDouble("total_value")); } } catch (SQLException e) { e.printStackTrace(); return createChartPlaceholder("Error loading chart data"); }
+        try (Connection conn = DbConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) { dataset.setValue(rs.getString("name"), rs.getDouble("total_value")); }
+        } catch (SQLException e) {
+            e.printStackTrace(); return createChartPlaceholder("Error loading chart data");
+        }
 
         JFreeChart pieChart = ChartFactory.createPieChart("สัดส่วนยอดขายตามหมวดหมู่", dataset, true, true, false);
-        Font thaiFont = new Font("Tahoma", Font.PLAIN, 12); Font thaiBoldFont = new Font("Tahoma", Font.BOLD, 14); pieChart.getTitle().setFont(thaiBoldFont); pieChart.getLegend().setItemFont(thaiFont); PiePlot plot = (PiePlot) pieChart.getPlot(); plot.setLabelFont(thaiFont); plot.setBackgroundPaint(Color.WHITE); plot.setOutlineVisible(false); plot.setSimpleLabels(true); plot.setLabelGenerator(new StandardPieSectionLabelGenerator("{2}", NumberFormat.getPercentInstance(), new DecimalFormat("0.0%")));
+        Font thaiFont = new Font("Tahoma", Font.PLAIN, 12);
+        Font thaiBoldFont = new Font("Tahoma", Font.BOLD, 14);
+        pieChart.getTitle().setFont(thaiBoldFont);
+        pieChart.getLegend().setItemFont(thaiFont);
 
-        // (*** แก้ไข: ประกาศ final ตรงนี้ และมีแค่ครั้งเดียว ***)
+        PiePlot plot = (PiePlot) pieChart.getPlot();
+        // plot.setLabelFont(thaiFont); // <-- ไม่จำเป็นแล้ว
+        plot.setBackgroundPaint(Color.WHITE);
+        plot.setOutlineVisible(false);
+
+        // (*** แก้ไข: ปิด Label อย่างชัดเจน ***)
+        plot.setLabelGenerator(null); // <-- สั่งไม่ให้มี Generator
+        plot.setSimpleLabels(false); // <-- ปิด Simple Labels ด้วย
+        // ---
+
         final ChartPanel chartPanel = new ChartPanel(pieChart);
         chartPanel.setPreferredSize(new Dimension(380, 280));
         chartPanel.setBackground(BG_COLOR_3);
 
-        // --- (Listener) ---
+        // --- (Listener ใหม่: คลิกที่ Panel) ---
         chartPanel.addChartMouseListener(new ChartMouseListener() {
             @Override
             public void chartMouseClicked(ChartMouseEvent event) {
-                ChartEntity entity = event.getEntity();
-                if (entity instanceof PieSectionEntity) {
-                    PieSectionEntity pieEntity = (PieSectionEntity) entity;
-                    String categoryKey = pieEntity.getSectionKey().toString();
-                    JFrame owner = (JFrame) SwingUtilities.getWindowAncestor(chartPanel); // <-- ใช้ chartPanel ที่เป็น final
-                    CategoryDetailDialog detailDialog = new CategoryDetailDialog(owner, categoryKey, "sales");
-                    detailDialog.setVisible(true);
-                }
+                JFrame owner = (JFrame) SwingUtilities.getWindowAncestor(chartPanel);
+                CategorySelectorDialog selectorDialog = new CategorySelectorDialog(owner, "sales");
+                selectorDialog.setVisible(true);
             }
             @Override
             public void chartMouseMoved(ChartMouseEvent event) { /* ไม่ใช้ */ }
         });
-        // --- (สิ้นสุด Listener) ---
+        // --- (สิ้นสุด Listener ใหม่) ---
 
-        return chartPanel; // <-- คืนค่า chartPanel ที่สร้างไว้
+        return chartPanel;
 
     } // <--- ปิดเมธอด createCategoryPieChart
 
 
-    /** กราฟวงกลม (Pie Chart) "สัดส่วนกำไรตามหมวดหมู่" */
+    /** กราฟวงกลม (Pie Chart) "สัดส่วนกำไรตามหมวดหมู่"
+     * (*** ฉบับแก้ไข - เอา Label ออก ***)
+    */
     private JPanel createProfitPieChart() {
         DefaultPieDataset dataset = new DefaultPieDataset();
         String sql = "SELECT c.name, COALESCE(SUM(sd.quantity * (p.sale_price - p.cost_price)), 0) AS total_profit FROM sale_details sd JOIN products p ON sd.product_id = p.product_id JOIN categories c ON p.category_id = c.category_id GROUP BY c.name HAVING total_profit > 0 ORDER BY total_profit DESC";
-        try (Connection conn = DbConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) { while (rs.next()) { dataset.setValue(rs.getString("name"), rs.getDouble("total_profit")); } } catch (SQLException e) { e.printStackTrace(); return createChartPlaceholder("Error loading profit chart data"); }
+        try (Connection conn = DbConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) { dataset.setValue(rs.getString("name"), rs.getDouble("total_profit")); }
+        } catch (SQLException e) {
+            e.printStackTrace(); return createChartPlaceholder("Error loading profit chart data");
+        }
 
         JFreeChart pieChart = ChartFactory.createPieChart("สัดส่วนกำไรตามหมวดหมู่", dataset, true, true, false);
-        Font thaiFont = new Font("Tahoma", Font.PLAIN, 12); Font thaiBoldFont = new Font("Tahoma", Font.BOLD, 14); pieChart.getTitle().setFont(thaiBoldFont); pieChart.getLegend().setItemFont(thaiFont); PiePlot plot = (PiePlot) pieChart.getPlot(); plot.setLabelFont(thaiFont); plot.setBackgroundPaint(Color.WHITE); plot.setOutlineVisible(false); plot.setSimpleLabels(true); plot.setLabelGenerator(new StandardPieSectionLabelGenerator("{2}", NumberFormat.getPercentInstance(), new DecimalFormat("0.0%")));
+        Font thaiFont = new Font("Tahoma", Font.PLAIN, 12);
+        Font thaiBoldFont = new Font("Tahoma", Font.BOLD, 14);
+        pieChart.getTitle().setFont(thaiBoldFont);
+        pieChart.getLegend().setItemFont(thaiFont);
 
-        // (*** แก้ไข: ประกาศ final ตรงนี้ และมีแค่ครั้งเดียว ***)
+        PiePlot plot = (PiePlot) pieChart.getPlot();
+        // plot.setLabelFont(thaiFont); // <-- ไม่จำเป็นแล้ว
+        plot.setBackgroundPaint(Color.WHITE);
+        plot.setOutlineVisible(false);
+
+        // (*** แก้ไข: ปิด Label อย่างชัดเจน ***)
+        plot.setLabelGenerator(null); // <-- สั่งไม่ให้มี Generator
+        plot.setSimpleLabels(false); // <-- ปิด Simple Labels ด้วย
+        // ---
+
         final ChartPanel chartPanel = new ChartPanel(pieChart);
         chartPanel.setPreferredSize(new Dimension(380, 280));
         chartPanel.setBackground(BG_COLOR_4);
 
-        // --- (Listener) ---
+        // --- (Listener ใหม่: คลิกที่ Panel) ---
         chartPanel.addChartMouseListener(new ChartMouseListener() {
             @Override
             public void chartMouseClicked(ChartMouseEvent event) {
-                ChartEntity entity = event.getEntity();
-                if (entity instanceof PieSectionEntity) {
-                    PieSectionEntity pieEntity = (PieSectionEntity) entity;
-                    String categoryKey = pieEntity.getSectionKey().toString();
-                    JFrame owner = (JFrame) SwingUtilities.getWindowAncestor(chartPanel); // <-- ใช้ chartPanel ที่เป็น final
-                    CategoryDetailDialog detailDialog = new CategoryDetailDialog(owner, categoryKey, "profit"); // <-- profit
-                    detailDialog.setVisible(true);
-                }
+                JFrame owner = (JFrame) SwingUtilities.getWindowAncestor(chartPanel);
+                CategorySelectorDialog selectorDialog = new CategorySelectorDialog(owner, "profit");
+                selectorDialog.setVisible(true);
             }
             @Override
             public void chartMouseMoved(ChartMouseEvent event) { /* ไม่ใช้ */ }
         });
-        // --- (สิ้นสุด Listener) ---
+        // --- (สิ้นสุด Listener ใหม่) ---
 
-        return chartPanel; // <-- คืนค่า chartPanel ที่สร้างไว้
+        return chartPanel;
 
     } // <--- ปิดเมธอด createProfitPieChart
-
     /** กราฟเส้น (Line Chart) "ยอดขาย 30 วันย้อนหลัง" */
     /** กราฟเส้น (Line Chart) "ยอดขาย 30 วันย้อนหลัง"
      * (*** ฉบับแก้ไข - เพิ่มโค้ดหมุนแกน X ***)
