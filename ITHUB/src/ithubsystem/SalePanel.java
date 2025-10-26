@@ -113,24 +113,100 @@ public class SalePanel extends JPanel {
         });
 
         // (เมื่อกดปุ่มถัดไป - เหมือนเดิม)
+     // (*** ฉบับแทนที่ - เพิ่มการตรวจสอบสต็อก ***)
         btnNext.addActionListener(new ActionListener() {
-             @Override
-             public void actionPerformed(ActionEvent e) {
-                 if (cartTableModel.getRowCount() == 0) {
-                     JOptionPane.showMessageDialog(SalePanel.this, "กรุณาเพิ่มสินค้าลงในตะกร้าก่อน", "ตะกร้าว่าง", JOptionPane.WARNING_MESSAGE);
-                     return;
-                 }
-                 double totalAmount = 0;
-                 for (int i = 0; i < cartTableModel.getRowCount(); i++) {
-                     int quantity = Integer.parseInt(cartTableModel.getValueAt(i, 2).toString());
-                     double price = (Double) cartTableModel.getValueAt(i, 3);
-                     totalAmount += (quantity * price);
-                 }
-                 JFrame owner = (JFrame) SwingUtilities.getWindowAncestor(SalePanel.this);
-                 PaymentDialog dialog = new PaymentDialog(owner, SalePanel.this, totalAmount, cashierUsername, cartTableModel);
-                 dialog.setVisible(true);
-             }
-         });
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // 1. เช็คว่าตะกร้าว่างหรือไม่
+                if (cartTableModel.getRowCount() == 0) {
+                    JOptionPane.showMessageDialog(SalePanel.this,
+                            "กรุณาเพิ่มสินค้าลงในตะกร้าก่อน",
+                            "ตะกร้าว่าง", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                // --- (*** ใหม่: Loop ตรวจสอบสต็อก ***) ---
+                Connection conn = null;
+                PreparedStatement pstmtCheckStock = null;
+                ResultSet rsStock = null;
+                boolean stockOk = true; // ตัวแปรเช็คสถานะสต็อก
+
+                try {
+                    conn = DbConnection.getConnection();
+                    String sqlCheckStock = "SELECT name, stock FROM products WHERE product_id = ?";
+                    pstmtCheckStock = conn.prepareStatement(sqlCheckStock);
+
+                    // วนลูปตรวจสอบทุกรายการในตะกร้า
+                    for (int i = 0; i < cartTableModel.getRowCount(); i++) {
+                        String productId = (String) cartTableModel.getValueAt(i, 4); // คอลัมน์ product_id ที่ซ่อนอยู่
+                        int quantityInCart = Integer.parseInt(cartTableModel.getValueAt(i, 2).toString()); // จำนวนในตะกร้า
+                        String productName = (String) cartTableModel.getValueAt(i, 1); // ชื่อสินค้า
+
+                        // ดึงสต็อกปัจจุบันจาก DB
+                        pstmtCheckStock.setString(1, productId);
+                        rsStock = pstmtCheckStock.executeQuery();
+
+                        if (rsStock.next()) {
+                            int currentStock = rsStock.getInt("stock");
+                            // เปรียบเทียบสต็อก
+                            if (quantityInCart > currentStock) {
+                                // --- พบว่าสต็อกไม่พอ! ---
+                                JOptionPane.showMessageDialog(SalePanel.this,
+                                        "สินค้า \"" + productName + "\" มีไม่เพียงพอในสต็อก!\n" +
+                                        "ต้องการ: " + quantityInCart + ", คงเหลือ: " + currentStock,
+                                        "สต็อกไม่พอ", JOptionPane.ERROR_MESSAGE);
+                                stockOk = false; // ตั้งค่าสถานะเป็น false
+                                rsStock.close(); // ปิด ResultSet ก่อน
+                                break; // ออกจาก loop ทันที
+                            }
+                        } else {
+                            // ไม่พบสินค้าใน DB (ไม่ควรเกิดขึ้นถ้าเพิ่มถูกต้อง)
+                            JOptionPane.showMessageDialog(SalePanel.this,
+                                    "เกิดข้อผิดพลาด: ไม่พบสินค้า \"" + productName + "\" ในฐานข้อมูล",
+                                    "ข้อผิดพลาด", JOptionPane.ERROR_MESSAGE);
+                            stockOk = false;
+                            rsStock.close();
+                            break;
+                        }
+                        rsStock.close(); // ปิด ResultSet ของรายการนี้
+                    } // จบ loop for
+
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(SalePanel.this,
+                            "เกิดข้อผิดพลาดในการตรวจสอบสต็อก", "Database Error", JOptionPane.ERROR_MESSAGE);
+                    stockOk = false; // หยุดการทำงานถ้าเกิด Error DB
+                } finally {
+                    // ปิดทรัพยากรฐานข้อมูลที่ใช้ตรวจสอบสต็อก
+                    try { if (rsStock != null) rsStock.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+                    try { if (pstmtCheckStock != null) pstmtCheckStock.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+                    try { if (conn != null) conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+                }
+
+                // --- (*** สิ้นสุดการตรวจสอบสต็อก ***) ---
+
+                // 3. ถ้าการตรวจสอบสต็อกไม่ผ่าน ให้หยุดตรงนี้
+                if (!stockOk) {
+                    return; // ไม่ไปต่อที่หน้าชำระเงิน
+                }
+
+                // 4. คำนวณยอดรวม (ทำเฉพาะเมื่อสต็อก OK)
+                double totalAmount = 0;
+                for (int i = 0; i < cartTableModel.getRowCount(); i++) {
+                    int quantity = Integer.parseInt(cartTableModel.getValueAt(i, 2).toString());
+                    double price = (Double) cartTableModel.getValueAt(i, 3);
+                    totalAmount += (quantity * price);
+                }
+
+                // 5. หาหน้าต่างแม่
+                JFrame owner = (JFrame) SwingUtilities.getWindowAncestor(SalePanel.this);
+
+                // 6. เปิดหน้าต่างชำระเงิน
+                PaymentDialog dialog = new PaymentDialog(owner, SalePanel.this,
+                    totalAmount, cashierUsername, cartTableModel);
+                dialog.setVisible(true);
+            }
+        }); // จบ ActionListener ของ btnNext
     } // (*** นี่คือวงเล็บปิดของ Constructor ***)(นี่คือวงเล็บปิดของ Constructor)
     
 
