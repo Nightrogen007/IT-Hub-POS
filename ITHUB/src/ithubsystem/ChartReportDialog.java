@@ -1,6 +1,9 @@
 package ithubsystem;
 
 import javax.swing.*;
+import java.awt.GridBagLayout;
+import org.jfree.chart.axis.CategoryLabelPositions; // (*** ใหม่ ***)
+import java.awt.GridBagConstraints;
 import org.jfree.chart.entity.ChartEntity;
 import org.jfree.chart.entity.PieSectionEntity;
 import org.jfree.chart.ChartMouseEvent;
@@ -45,32 +48,52 @@ public class ChartReportDialog extends JFrame {
         setTitle("หน้าต่างแสดงกราฟรายงาน");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        // (*** แก้ไข: ลดความสูงลงเล็กน้อย เผื่อ Taskbar ***)
         setSize(screenSize.width - 50, screenSize.height - 100);
         setLocationRelativeTo(owner);
-        setLayout(new GridLayout(3, 2, 10, 10));
-        // (*** ตั้งพื้นหลังหลักเป็นสีเทาอ่อนๆ ***)
-        getContentPane().setBackground(Color.LIGHT_GRAY);
+
+        // (*** เปลี่ยน Layout เป็น GridBagLayout ***)
+        setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH; // ให้ Panel ขยายเต็มช่อง
+        gbc.weightx = 0.5; // แบ่งความกว้างเท่าๆ กัน (สำหรับ 2 คอลัมน์แรก)
+        gbc.weighty = 0.33; // แบ่งความสูงประมาณ 1/3
+        gbc.insets = new java.awt.Insets(5, 5, 5, 5); // เพิ่มช่องไฟรอบๆ
 
         // --- แถวที่ 1 ---
+        gbc.gridx = 0; // คอลัมน์ 0
+        gbc.gridy = 0; // แถว 0
         JPanel pnlChart1 = createBestSellerChart();
-        add(pnlChart1);
+        add(pnlChart1, gbc);
+
+        gbc.gridx = 1; // คอลัมน์ 1
+        gbc.gridy = 0; // แถว 0
         JPanel pnlChartProfitBar = createProfitBarChart();
-        add(pnlChartProfitBar);
+        add(pnlChartProfitBar, gbc);
 
         // --- แถวที่ 2 ---
+        gbc.gridx = 0; // คอลัมน์ 0
+        gbc.gridy = 1; // แถว 1
         JPanel pnlChart2 = createCategoryPieChart();
-        add(pnlChart2);
+        add(pnlChart2, gbc);
+
+        gbc.gridx = 1; // คอลัมน์ 1
+        gbc.gridy = 1; // แถว 1
         JPanel pnlChartProfitPie = createProfitPieChart();
-        add(pnlChartProfitPie);
+        add(pnlChartProfitPie, gbc);
 
-        // --- แถวที่ 3 ---
+        // --- แถวที่ 3 (กราฟเส้น - ขยายเต็ม) ---
+        gbc.gridx = 0; // เริ่มที่คอลัมน์ 0
+        gbc.gridy = 2; // แถว 2
+        gbc.gridwidth = 2; // (*** สำคัญ: ให้กินพื้นที่ 2 คอลัมน์ ***)
+        gbc.weightx = 1.0; // ให้น้ำหนักเต็มความกว้าง
         JPanel pnlChart3 = createSalesLineChart();
-        add(pnlChart3);
+        add(pnlChart3, gbc);
 
-        // (เว้นว่าง)
-        JPanel emptyPanel = new JPanel();
-        emptyPanel.setBackground(getContentPane().getBackground());
-        add(emptyPanel);
+        // (ไม่ต้องมี Panel ว่างแล้ว)
+
+        // (*** แก้ไข: ตั้งพื้นหลังหลักเป็นสีเทาอ่อนๆ ***)
+        getContentPane().setBackground(Color.LIGHT_GRAY);
     }
 
     /** (Helper) สร้าง Placeholder */
@@ -190,17 +213,45 @@ public class ChartReportDialog extends JFrame {
     } // <--- ปิดเมธอด createProfitPieChart
 
     /** กราฟเส้น (Line Chart) "ยอดขาย 30 วันย้อนหลัง" */
+    /** กราฟเส้น (Line Chart) "ยอดขาย 30 วันย้อนหลัง"
+     * (*** ฉบับแก้ไข - เพิ่มโค้ดหมุนแกน X ***)
+    */
     private JPanel createSalesLineChart() {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
         String sql = "SELECT DATE(sale_date) AS sale_day, SUM(total_amount) AS daily_total FROM sales WHERE sale_date >= CURDATE() - INTERVAL 30 DAY GROUP BY sale_day ORDER BY sale_day ASC";
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM");
-        try (Connection conn = DbConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) { while (rs.next()) { dataset.setValue(rs.getDouble("daily_total"), "ยอดขาย", dateFormat.format(rs.getDate("sale_day"))); } } catch (SQLException e) { e.printStackTrace(); return createChartPlaceholder("Error loading chart data"); }
+        try (Connection conn = DbConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
+             while (rs.next()) { dataset.setValue(rs.getDouble("daily_total"), "ยอดขาย", dateFormat.format(rs.getDate("sale_day"))); }
+        } catch (SQLException e) {
+             e.printStackTrace(); return createChartPlaceholder("Error loading chart data");
+        }
 
         JFreeChart lineChart = ChartFactory.createLineChart("แนวโน้มยอดขาย 30 วันย้อนหลัง", "วันที่", "ยอดขาย (บาท)", dataset, PlotOrientation.VERTICAL, false, true, false);
-        Font thaiFont = new Font("Tahoma", Font.PLAIN, 12); Font thaiBoldFont = new Font("Tahoma", Font.BOLD, 14); lineChart.getTitle().setFont(thaiBoldFont); CategoryPlot plot = lineChart.getCategoryPlot(); plot.getDomainAxis().setLabelFont(thaiBoldFont); plot.getDomainAxis().setTickLabelFont(thaiFont); plot.getRangeAxis().setLabelFont(thaiBoldFont); plot.getRangeAxis().setTickLabelFont(thaiFont); plot.setBackgroundPaint(Color.WHITE); plot.setRangeGridlinePaint(Color.LIGHT_GRAY); LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer(); renderer.setSeriesStroke(0, new java.awt.BasicStroke(2.0f)); renderer.setSeriesPaint(0, Color.BLUE);
+        Font thaiFont = new Font("Tahoma", Font.PLAIN, 12);
+        Font thaiBoldFont = new Font("Tahoma", Font.BOLD, 14);
+        lineChart.getTitle().setFont(thaiBoldFont);
 
-        final ChartPanel chartPanel = new ChartPanel(lineChart); // <-- ประกาศ final ที่นี่
-        chartPanel.setPreferredSize(new Dimension(750, 280));
+        CategoryPlot plot = lineChart.getCategoryPlot(); // <-- ดึง Plot
+
+        // --- (*** เพิ่ม 2 บรรทัดนี้ตรงนี้ ***) ---
+        org.jfree.chart.axis.CategoryAxis domainAxis = plot.getDomainAxis(); // ดึงแกน X
+        domainAxis.setCategoryLabelPositions(CategoryLabelPositions.UP_90); // สั่งให้ Label แนวตั้ง
+        // --- (*** สิ้นสุดส่วนที่เพิ่ม ***) ---
+
+        // (โค้ดปรับแต่งที่เหลือ)
+        domainAxis.setLabelFont(thaiBoldFont);
+        domainAxis.setTickLabelFont(thaiFont); // Font ของวันที่ (จะแสดงแนวตั้ง)
+        plot.getRangeAxis().setLabelFont(thaiBoldFont);
+        plot.getRangeAxis().setTickLabelFont(thaiFont);
+        plot.setBackgroundPaint(Color.WHITE);
+        plot.setRangeGridlinePaint(Color.LIGHT_GRAY);
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        renderer.setSeriesStroke(0, new java.awt.BasicStroke(2.0f));
+        renderer.setSeriesPaint(0, Color.BLUE);
+
+        final ChartPanel chartPanel = new ChartPanel(lineChart);
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        chartPanel.setPreferredSize(new Dimension(screenSize.width - 100, 280));
         chartPanel.setBackground(BG_COLOR_5);
         return chartPanel;
     }
