@@ -210,14 +210,33 @@ public class PaymentDialog extends JDialog {
             pstmtDetail.executeBatch();
             pstmtUpdateStock.executeBatch();
 
-            // --- 6. (สำเร็จ) สั่ง Commit Transaction ---
-            conn.commit(); 
-            
-            JOptionPane.showMessageDialog(this, "บันทึกการขายสำเร็จ!\nเงินทอน: " + lblChange.getText());
-            dispose(); // ปิดหน้า Pop-up ชำระเงิน
-            
-            // (สำคัญ) สั่งให้หน้า SalePanel กลับไปหน้าหลัก
+            /// --- 6. (สำเร็จ) สั่ง Commit Transaction ---
+            conn.commit();
+
+            // (*** แก้ไข: เปลี่ยนจาก JOptionPane เป็นเปิด ReceiptDialog ***)
+            // JOptionPane.showMessageDialog(this, "บันทึกการขายสำเร็จ!\nเงินทอน: " + lblChange.getText());
+
+            // 6.1 ดึงข้อมูลสำหรับใบเสร็จ
+            double received = 0;
+            try { received = Double.parseDouble(txtAmountReceived.getText()); } catch (Exception ignored) {}
+            double calculatedChange = received - totalAmount;
+
+            // 6.2 เปิดหน้าต่างใบเสร็จ
+            ReceiptDialog receiptDialog = new ReceiptDialog(
+                ownerFrame, // หน้าต่างแม่ (MainMenuPage)
+                newSaleId, // ID บิลใหม่
+                cashierUsername, // ชื่อพนักงาน
+                cartTableModel, // ข้อมูลตะกร้า
+                totalAmount, // ยอดรวม
+                received, // เงินที่รับ
+                calculatedChange // เงินทอน
+            );
+            dispose(); // ปิดหน้า Pop-up ชำระเงิน (ก่อนแสดงใบเสร็จ)
+            receiptDialog.setVisible(true); // แสดงใบเสร็จ
+
+            // 6.3 (สำคัญ) สั่งให้หน้า SalePanel กลับไปหน้าหลัก
             salePanel.saleCompleted();
+            // --- (*** สิ้นสุดการแก้ไข ***) ---
 
         } catch (SQLException e) {
             // --- 7. (ล้มเหลว) สั่ง Rollback ---
