@@ -116,6 +116,8 @@ public class LoginPage extends JFrame {
             } else {
                 // --- Login ไม่สำเร็จ ---
                 lblStatus.setText("Username หรือ Password ไม่ถูกต้อง!");
+                txtUsername.setText(""); // ล้างช่อง Username
+                txtPassword.setText(""); // ล้างช่อง Password
             }
 
         } catch (SQLException e) {
